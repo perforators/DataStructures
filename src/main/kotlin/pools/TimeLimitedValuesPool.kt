@@ -13,10 +13,11 @@ class TimeLimitedValuesPool<T>(
 ) : Pool<T> {
 
     private val pool: Deque<Entry<T>> = ArrayDeque(capacity)
-    private val mutex = Mutex()
+    private val poolMutex = Mutex()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    private val eventReporters: MutableSet<EventReporter<T>> = mutableSetOf()
+    @Volatile
+    private var eventReporter: EventReporter<T> = EventReporter.NONE
 
     init {
         repeat(capacity) { fetchNewValue() }
@@ -33,7 +34,7 @@ class TimeLimitedValuesPool<T>(
         }
     }
 
-    private suspend fun offer(value: T) = mutex.withLock {
+    private suspend fun offer(value: T) = poolMutex.withLock {
         pool.offerLast(Entry(value))
         report {
             onAdd(value)
@@ -43,7 +44,7 @@ class TimeLimitedValuesPool<T>(
 
     private suspend inline fun report(crossinline block: EventReporter<T>.() -> Unit) {
         withContext(reportDispatcher) {
-            eventReporters.forEach(block)
+            eventReporter.block()
         }
     }
 
@@ -57,7 +58,7 @@ class TimeLimitedValuesPool<T>(
         }
     }
 
-    private suspend fun clean() = mutex.withLock {
+    private suspend fun clean() = poolMutex.withLock {
         var numberDeletedValues = 0
         while (pool.isNotEmpty() && !pool.peekFirst().isAlive(lifetimeInMillis)) {
             val entry = pool.removeFirst()
@@ -70,7 +71,7 @@ class TimeLimitedValuesPool<T>(
         numberDeletedValues
     }
 
-    override suspend fun poll(): T? = mutex.withLock {
+    override suspend fun poll(): T? = poolMutex.withLock {
         pool.pollFirst()?.value?.also { value ->
             report {
                 onPoll(value)
@@ -79,12 +80,12 @@ class TimeLimitedValuesPool<T>(
         }
     }?.also { fetchNewValue() }
 
-    fun registerEventReporter(eventReporter: EventReporter<T>): Boolean {
-        return eventReporters.add(eventReporter)
+    fun registerEventReporter(eventReporter: EventReporter<T>) {
+        this.eventReporter = eventReporter
     }
 
-    fun unregisterEventReporter(eventReporter: EventReporter<T>): Boolean {
-        return eventReporters.remove(eventReporter)
+    fun resetEventReporter() {
+        this.eventReporter = EventReporter.NONE
     }
 
     fun cancel() {
@@ -101,12 +102,16 @@ class TimeLimitedValuesPool<T>(
         suspend fun provide(): T
     }
 
-    interface EventReporter<T> {
+    interface EventReporter<in T> {
         fun onAdd(value: T) = Unit
         fun onRemove(value: T) = Unit
         fun onPoll(value: T) = Unit
         fun onChangeSize(value: Int) = Unit
         fun onError(e: Throwable) = Unit
+
+        companion object {
+            val NONE = object : EventReporter<Any?> {  }
+        }
     }
 
     companion object {
