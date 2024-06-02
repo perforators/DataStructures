@@ -12,12 +12,13 @@ class TimeLimitedValuesPool<T>(
     private val reportDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : Pool<T> {
 
-    private val pool: Deque<Entry<T>> = ArrayDeque(capacity)
-    private val poolMutex = Mutex()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    @Volatile
-    private var eventReporter: EventReporter<T> = EventReporter.NONE
+    private val pool: Queue<Entry<T>> = ArrayDeque(capacity)
+    private val poolMutex = Mutex()
+
+    private val eventReporters: MutableSet<EventReporter<T>> = mutableSetOf()
+    private val reporterMutex = Mutex()
 
     init {
         repeat(capacity) { fetchNewValue() }
@@ -35,7 +36,7 @@ class TimeLimitedValuesPool<T>(
     }
 
     private suspend fun offer(value: T) = poolMutex.withLock {
-        pool.offerLast(Entry(value))
+        pool.offer(Entry(value))
         report {
             onAdd(value)
             onChangeSize(pool.size)
@@ -44,7 +45,9 @@ class TimeLimitedValuesPool<T>(
 
     private suspend inline fun report(crossinline block: EventReporter<T>.() -> Unit) {
         withContext(reportDispatcher) {
-            eventReporter.block()
+            reporterMutex.withLock {
+                eventReporters.forEach(block)
+            }
         }
     }
 
@@ -60,8 +63,8 @@ class TimeLimitedValuesPool<T>(
 
     private suspend fun clean() = poolMutex.withLock {
         var numberDeletedValues = 0
-        while (pool.isNotEmpty() && !pool.peekFirst().isAlive(lifetimeInMillis)) {
-            val entry = pool.removeFirst()
+        while (pool.isNotEmpty() && !pool.peek().isAlive(lifetimeInMillis)) {
+            val entry = pool.poll()
             report {
                 onRemove(entry.value)
                 onChangeSize(pool.size)
@@ -72,7 +75,7 @@ class TimeLimitedValuesPool<T>(
     }
 
     override suspend fun poll(): T? = poolMutex.withLock {
-        pool.pollFirst()?.value?.also { value ->
+        pool.poll()?.value?.also { value ->
             report {
                 onPoll(value)
                 onChangeSize(pool.size)
@@ -81,11 +84,19 @@ class TimeLimitedValuesPool<T>(
     }?.also { fetchNewValue() }
 
     fun registerEventReporter(eventReporter: EventReporter<T>) {
-        this.eventReporter = eventReporter
+        scope.launch {
+            reporterMutex.withLock {
+                eventReporters.add(eventReporter)
+            }
+        }
     }
 
-    fun resetEventReporter() {
-        this.eventReporter = EventReporter.NONE
+    fun unregisterEventReporter(eventReporter: EventReporter<T>) {
+        scope.launch {
+            reporterMutex.withLock {
+                eventReporters.remove(eventReporter)
+            }
+        }
     }
 
     fun cancel() {
@@ -108,10 +119,6 @@ class TimeLimitedValuesPool<T>(
         fun onPoll(value: T) = Unit
         fun onChangeSize(value: Int) = Unit
         fun onError(e: Throwable) = Unit
-
-        companion object {
-            val NONE = object : EventReporter<Any?> {  }
-        }
     }
 
     companion object {
