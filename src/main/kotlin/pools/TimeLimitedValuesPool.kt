@@ -83,6 +83,10 @@ class TimeLimitedValuesPool<T>(
         }
     }?.also { fetchNewValue() }
 
+    override suspend fun take(): T {
+        TODO("Not yet implemented")
+    }
+
     fun registerEventReporter(eventReporter: EventReporter<T>) {
         scope.launch {
             reporterMutex.withLock {
