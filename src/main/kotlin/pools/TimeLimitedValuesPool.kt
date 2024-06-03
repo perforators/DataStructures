@@ -3,7 +3,10 @@ package pools
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import queues.intercept.InterceptQueue
+import queues.intercept.Interceptor
 import java.util.*
+import kotlin.coroutines.resume
 
 class TimeLimitedValuesPool<T>(
     capacity: Int,
@@ -14,7 +17,7 @@ class TimeLimitedValuesPool<T>(
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    private val pool: Queue<Entry<T>> = ArrayDeque(capacity)
+    private val pool = InterceptQueue<Entry<T>>(ArrayDeque(capacity))
     private val poolMutex = Mutex()
 
     private val eventReporters: MutableSet<EventReporter<T>> = mutableSetOf()
@@ -83,8 +86,15 @@ class TimeLimitedValuesPool<T>(
         }
     }?.also { fetchNewValue() }
 
-    override suspend fun take(): T {
-        TODO("Not yet implemented")
+    override suspend fun take(): T = suspendCancellableCoroutine {
+        val interceptor = Interceptor<Entry<T>> { entry ->
+            it.resume(entry.value)
+            true
+        }
+        pool.addInterceptor(interceptor)
+        it.invokeOnCancellation {
+            pool.removeInterceptor(interceptor)
+        }
     }
 
     fun registerEventReporter(eventReporter: EventReporter<T>) {
