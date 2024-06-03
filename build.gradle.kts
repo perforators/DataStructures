@@ -2,11 +2,12 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "1.7.10"
+    id("maven-publish")
     application
 }
 
-group = "me.sfsdf"
-version = "1.0-SNAPSHOT"
+group = "perforators.io"
+version = "1.0.0"
 
 repositories {
     mavenCentral()
