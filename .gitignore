@@ -2,3 +2,6 @@
 /.gradle/
 /build
 /.idea
+/local.properties
+/convention-plugins/.gradle
+/convention-plugins/build
