@@ -1,3 +1,9 @@
+pluginManagement {
+    repositories {
+        google()
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
 
-rootProject.name = "data_structures"
-
+rootProject.name = "ds"
