@@ -1,10 +1,10 @@
-package pools
+package io.github.perforators.pools
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import queues.intercept.InterceptQueue
-import queues.intercept.Interceptor
+import io.github.perforators.queues.intercept.InterceptQueue
+import io.github.perforators.queues.intercept.Interceptor
 import java.util.*
 import kotlin.coroutines.resume
 
