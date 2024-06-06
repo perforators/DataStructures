@@ -1,4 +1,4 @@
-package queues.intercept
+package io.github.perforators.queues.intercept
 
 fun interface Interceptor<in T> {
     fun intercept(value: T): Boolean

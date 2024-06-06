@@ -1,6 +1,6 @@
-package queues.intercept
+package io.github.perforators.queues.intercept
 
-import annotations.ThreadSafe
+import io.github.perforators.annotations.ThreadSafe
 import java.util.*
 
 class InterceptQueue<T>(
