@@ -20,24 +20,7 @@ class InterceptQueue<T>(
     }
 
     private fun intercept(value: T) = synchronized(lock) {
-        if (interceptors.isEmpty()) return@synchronized false
-        val failedInterceptors = mutableListOf<Interceptor<T>>()
-        while (true) {
-            val interceptor = interceptors.poll() ?: break
-            val successfullyInterception = try {
-                interceptor.intercept(value)
-            } catch (e: Exception) {
-                false
-            }
-            if (successfullyInterception) {
-                failedInterceptors.forEach(interceptors::register)
-                return@synchronized true
-            } else {
-                failedInterceptors.add(interceptor)
-            }
-        }
-        failedInterceptors.forEach(interceptors::register)
-        false
+        interceptors.intercept(value)
     }
 
     @ThreadSafe
