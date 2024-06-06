@@ -143,3 +143,11 @@ class TimeLimitedValuesPool<T>(
         private const val CLEANING_LOOP_DELAY = 1000L
     }
 }
+
+inline fun <T, R> TimeLimitedValuesPool<T>.use(action: TimeLimitedValuesPool<T>.() -> R): R {
+    return try {
+        action()
+    } finally {
+        cancel()
+    }
+}
