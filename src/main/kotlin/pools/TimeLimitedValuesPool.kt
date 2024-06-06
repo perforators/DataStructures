@@ -69,7 +69,7 @@ class TimeLimitedValuesPool<T>(
         while (pool.isNotEmpty() && !pool.peek().isAlive(lifetimeInMillis)) {
             val entry = pool.poll()
             report {
-                onRemove(entry.value)
+                onClean(entry.value)
                 onChangeSize(pool.size)
             }
             numberDeletedValues++
@@ -129,7 +129,7 @@ class TimeLimitedValuesPool<T>(
 
     interface EventReporter<in T> {
         fun onAdd(value: T) = Unit
-        fun onRemove(value: T) = Unit
+        fun onClean(value: T) = Unit
         fun onPoll(value: T) = Unit
         fun onChangeSize(value: Int) = Unit
         fun onError(e: Throwable) = Unit
