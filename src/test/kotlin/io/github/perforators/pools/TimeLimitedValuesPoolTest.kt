@@ -21,9 +21,11 @@ internal class TimeLimitedValuesPoolTest {
             }
         )
 
-        val value = pool.take()
+        pool.use {
+            val value = take()
 
-        assertEquals(1, value)
+            assertEquals(1, value)
+        }
     }
 
     @Test
@@ -37,9 +39,11 @@ internal class TimeLimitedValuesPoolTest {
             }
         )
 
-        val value = pool.poll(2000)
+        pool.use {
+            val value = poll(2000)
 
-        assertEquals(1, value)
+            assertEquals(1, value)
+        }
     }
 
     @Test
@@ -53,8 +57,10 @@ internal class TimeLimitedValuesPoolTest {
             }
         )
 
-        val value = pool.poll(1000)
+        pool.use {
+            val value = poll(1000)
 
-        assertEquals(null, value)
+            assertEquals(null, value)
+        }
     }
 }
