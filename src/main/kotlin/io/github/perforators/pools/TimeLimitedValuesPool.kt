@@ -97,8 +97,11 @@ class TimeLimitedValuesPool<T>(
         }
     }
 
-    override suspend fun poll(timeoutMillis: Long): T? = withTimeoutOrNull(timeoutMillis) {
-        take()
+    override suspend fun poll(timeoutMillis: Long): T? {
+        if (timeoutMillis <= 0) return poll()
+        return withTimeoutOrNull(timeoutMillis) {
+            take()
+        }
     }
 
     fun registerEventReporter(eventReporter: EventReporter<T>) {
