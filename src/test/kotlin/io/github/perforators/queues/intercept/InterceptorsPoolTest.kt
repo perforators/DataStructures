@@ -20,7 +20,7 @@ internal class InterceptorsPoolTest {
             }
             pool.intercept(Unit)
 
-            assertEquals(intercepted, true)
+            assertEquals(true, intercepted)
         }
     }
 
@@ -35,7 +35,7 @@ internal class InterceptorsPoolTest {
             pool.register { true }
             pool.intercept(Unit)
 
-            assertEquals(pool.size, 0)
+            assertEquals(0, pool.size)
         }
     }
 
@@ -54,6 +54,6 @@ internal class InterceptorsPoolTest {
         }
 
         val correctInterceptionOrder = listOf(0, 1, 2)
-        assertEquals(interceptionOrder, correctInterceptionOrder)
+        assertEquals(correctInterceptionOrder, interceptionOrder)
     }
 }

@@ -97,6 +97,10 @@ class TimeLimitedValuesPool<T>(
         }
     }
 
+    override suspend fun poll(timeoutMillis: Long): T? = withTimeoutOrNull(timeoutMillis) {
+        take()
+    }
+
     fun registerEventReporter(eventReporter: EventReporter<T>) {
         scope.launch {
             reporterMutex.withLock {
