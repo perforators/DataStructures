@@ -2,7 +2,7 @@ package io.github.perforators.queues.intercept
 
 import java.util.*
 
-internal interface InterceptorPool<T> {
+internal sealed interface InterceptorPool<T> {
 
     val size: Int
 
@@ -12,7 +12,7 @@ internal interface InterceptorPool<T> {
 
     fun intercept(value: T): Boolean
 
-    class Fair<T>(
+    private class Fair<T>(
         private val queue: Queue<Interceptor<T>> = LinkedList()
     ) : InterceptorPool<T> {
 
@@ -32,30 +32,55 @@ internal interface InterceptorPool<T> {
 
         override fun register(interceptor: Interceptor<T>): Boolean = queue.offer(interceptor)
 
-        override fun unregister(interceptor: Interceptor<T>): Boolean = queue.remove(interceptor)
+        override fun unregister(interceptor: Interceptor<T>): Boolean = queue.removeAll { it == interceptor }
     }
 
-    class Unfair<T>(
-        private val set: MutableSet<Interceptor<T>> = mutableSetOf()
+    private class Unfair<T>(
+        private val map: MutableMap<Interceptor<T>, Int> = mutableMapOf()
     ) : InterceptorPool<T> {
 
-        override val size: Int get() = set.size
+        override var size: Int = 0
+            private set
 
         override fun intercept(value: T): Boolean {
-            val iterator = set.iterator()
+            val iterator = map.iterator()
             while (iterator.hasNext()) {
-                val interceptor = iterator.next()
+                val entry = iterator.next()
+                val interceptor = entry.key
                 if (interceptor.interceptSafely(value)) {
-                    iterator.remove()
+                    removeOneInterceptor(iterator, entry)
                     return true
                 }
             }
             return false
         }
 
-        override fun register(interceptor: Interceptor<T>): Boolean = set.add(interceptor)
+        private fun removeOneInterceptor(
+            iterator: MutableIterator<MutableMap.MutableEntry<Interceptor<T>, Int>>,
+            entry: MutableMap.MutableEntry<Interceptor<T>, Int>
+        ) {
+            if (entry.value == 1) {
+                iterator.remove()
+            } else {
+                entry.setValue(entry.value - 1)
+            }
+            size--
+        }
 
-        override fun unregister(interceptor: Interceptor<T>): Boolean = set.remove(interceptor)
+        override fun register(interceptor: Interceptor<T>): Boolean {
+            map.merge(interceptor, 1) { old, increment -> old + increment }
+            size++
+            return true
+        }
+
+        override fun unregister(interceptor: Interceptor<T>): Boolean {
+            val removedValue = map.remove(interceptor)
+            if (removedValue != null) {
+                size -= removedValue
+                return true
+            }
+            return false
+        }
     }
 
     companion object {
