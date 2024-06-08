@@ -56,4 +56,37 @@ internal class InterceptorPoolTest {
         val correctInterceptionOrder = listOf(0, 1, 2)
         assertEquals(correctInterceptionOrder, interceptionOrder)
     }
+
+    @Test
+    fun `interceptor pool must support registration of duplicate interceptors`() {
+        val interceptorPools = listOf<InterceptorPool<Unit>>(
+            InterceptorPool.of(fair = false),
+            InterceptorPool.of(fair = true)
+        )
+        val interceptor = Interceptor<Unit> { true }
+
+        for (pool in interceptorPools) {
+            pool.register(interceptor)
+            pool.register(interceptor)
+
+            assertEquals(2, pool.size)
+        }
+    }
+
+    @Test
+    fun `when canceling the registration of the interceptor, all duplicates must be deleted`() {
+        val interceptorPools = listOf<InterceptorPool<Unit>>(
+            InterceptorPool.of(fair = false),
+            InterceptorPool.of(fair = true)
+        )
+        val interceptor = Interceptor<Unit> { true }
+
+        for (pool in interceptorPools) {
+            pool.register(interceptor)
+            pool.register(interceptor)
+            pool.unregister(interceptor)
+
+            assertEquals(0, pool.size)
+        }
+    }
 }
