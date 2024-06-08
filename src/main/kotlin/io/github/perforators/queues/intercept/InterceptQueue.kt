@@ -8,7 +8,7 @@ class InterceptQueue<T>(
     fair: Boolean = true
 ) : Queue<T> by target {
 
-    private val interceptors: InterceptorsPool<T> = InterceptorsPool.of(fair)
+    private val interceptors: InterceptorPool<T> = InterceptorPool.of(fair)
     private val lock = Any()
 
     override fun add(element: T): Boolean {
