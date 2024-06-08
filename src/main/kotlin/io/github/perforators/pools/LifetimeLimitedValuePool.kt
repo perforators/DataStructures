@@ -1,6 +1,5 @@
-package io.github.perforators.pools.lifetime
+package io.github.perforators.pools
 
-import io.github.perforators.pools.Pool
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -126,13 +125,33 @@ class LifetimeLimitedValuePool<T>(
         scope.cancel()
     }
 
-    private class Entry<T>(val value: T, private val creationTime: Long = System.currentTimeMillis()) {
+    class Entry<T>(val value: T, private val creationTime: Long = System.currentTimeMillis()) {
         fun isAlive(lifeTime: Long): Boolean {
             return System.currentTimeMillis() - creationTime <= lifeTime
         }
     }
 
+    fun interface ValueProvider<out T> {
+        suspend fun provide(): T
+    }
+
+    interface EventReporter<in T> {
+        fun onAdd(value: T) = Unit
+        fun onClean(value: T) = Unit
+        fun onPoll(value: T) = Unit
+        fun onChangeSize(value: Int) = Unit
+        fun onError(e: Throwable) = Unit
+    }
+
     companion object {
         private const val CLEANING_LOOP_DELAY = 1000L
+    }
+}
+
+inline fun <T, R> LifetimeLimitedValuePool<T>.use(action: LifetimeLimitedValuePool<T>.() -> R): R {
+    return try {
+        action()
+    } finally {
+        cancel()
     }
 }

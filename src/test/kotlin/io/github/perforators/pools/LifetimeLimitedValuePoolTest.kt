@@ -1,4 +1,4 @@
-package io.github.perforators.pools.lifetime
+package io.github.perforators.pools
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
