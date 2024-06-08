@@ -8,7 +8,7 @@ import io.github.perforators.queues.intercept.Interceptor
 import java.util.*
 import kotlin.coroutines.resume
 
-class TimeLimitedValuesPool<T>(
+class LifetimeLimitedValuePool<T>(
     capacity: Int,
     private val lifetimeInMillis: Long,
     private val valueProvider: ValueProvider<T>,
@@ -147,7 +147,7 @@ class TimeLimitedValuesPool<T>(
     }
 }
 
-inline fun <T, R> TimeLimitedValuesPool<T>.use(action: TimeLimitedValuesPool<T>.() -> R): R {
+inline fun <T, R> LifetimeLimitedValuePool<T>.use(action: LifetimeLimitedValuePool<T>.() -> R): R {
     return try {
         action()
     } finally {

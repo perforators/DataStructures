@@ -7,12 +7,12 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import kotlin.test.assertEquals
 
-internal class TimeLimitedValuesPoolTest {
+internal class LifetimeLimitedValuePoolTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun `take() must wait for the value to appear and return it`() = runTest {
-        val pool = TimeLimitedValuesPool(
+        val pool = LifetimeLimitedValuePool(
             capacity = 1,
             lifetimeInMillis = Long.MAX_VALUE,
             valueProvider = {
@@ -30,7 +30,7 @@ internal class TimeLimitedValuesPoolTest {
 
     @Test
     fun `poll(timeout) must wait for the value to appear before the timeout expires and return it`() = runBlocking {
-        val pool = TimeLimitedValuesPool(
+        val pool = LifetimeLimitedValuePool(
             capacity = 1,
             lifetimeInMillis = Long.MAX_VALUE,
             valueProvider = {
@@ -48,7 +48,7 @@ internal class TimeLimitedValuesPoolTest {
 
     @Test
     fun `poll(timeout) must return null if the timeout has expired`() = runBlocking {
-        val pool = TimeLimitedValuesPool(
+        val pool = LifetimeLimitedValuePool(
             capacity = 1,
             lifetimeInMillis = Long.MAX_VALUE,
             valueProvider = {
