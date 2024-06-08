@@ -2,7 +2,7 @@ package io.github.perforators.queues.intercept
 
 import java.util.*
 
-internal interface InterceptorsPool<T> {
+internal interface InterceptorPool<T> {
 
     val size: Int
 
@@ -14,7 +14,7 @@ internal interface InterceptorsPool<T> {
 
     class Fair<T>(
         private val queue: Queue<Interceptor<T>> = LinkedList()
-    ) : InterceptorsPool<T> {
+    ) : InterceptorPool<T> {
 
         override val size: Int get() = queue.size
 
@@ -37,7 +37,7 @@ internal interface InterceptorsPool<T> {
 
     class Unfair<T>(
         private val set: MutableSet<Interceptor<T>> = mutableSetOf()
-    ) : InterceptorsPool<T> {
+    ) : InterceptorPool<T> {
 
         override val size: Int get() = set.size
 
@@ -59,10 +59,10 @@ internal interface InterceptorsPool<T> {
     }
 
     companion object {
-        fun <T> of(fair: Boolean): InterceptorsPool<T> = if (fair) Fair() else Unfair()
+        fun <T> of(fair: Boolean): InterceptorPool<T> = if (fair) Fair() else Unfair()
     }
 }
 
-internal fun <T> InterceptorsPool<T>.register(vararg interceptors: Interceptor<T>) {
+internal fun <T> InterceptorPool<T>.register(vararg interceptors: Interceptor<T>) {
     interceptors.forEach(::register)
 }
