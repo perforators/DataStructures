@@ -12,10 +12,11 @@ class LifetimeLimitedValuePool<T>(
     capacity: Int,
     private val lifetimeInMillis: Long,
     private val valueProvider: ValueProvider<T>,
-    private val reportDispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val reportDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    workDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : Pool<T> {
 
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val scope = CoroutineScope(workDispatcher + SupervisorJob())
 
     private val pool = InterceptQueue<Entry<T>>(ArrayDeque(capacity))
     private val poolMutex = Mutex()
