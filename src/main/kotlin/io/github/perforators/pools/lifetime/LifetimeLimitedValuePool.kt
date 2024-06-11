@@ -1,13 +1,12 @@
 package io.github.perforators.pools.lifetime
 
 import io.github.perforators.pools.Pool
+import io.github.perforators.pools.lifetime.internal.AutoOwnerMutex
+import io.github.perforators.pools.lifetime.internal.newCondition
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import io.github.perforators.queues.intercept.InterceptQueue
-import io.github.perforators.queues.intercept.Interceptor
 import java.util.*
-import kotlin.coroutines.resume
 
 class LifetimeLimitedValuePool<T>(
     capacity: Int,
@@ -19,8 +18,9 @@ class LifetimeLimitedValuePool<T>(
 
     private val scope = CoroutineScope(workDispatcher + SupervisorJob())
 
-    private val pool = InterceptQueue<Entry<T>>(ArrayDeque(capacity))
-    private val poolMutex = Mutex()
+    private val pool = ArrayDeque<Entry<T>>(capacity)
+    private val poolMutex = AutoOwnerMutex()
+    private val isNotEmpty = poolMutex.newCondition()
 
     private val eventReporters: MutableSet<EventReporter<T>> = mutableSetOf()
     private val reporterMutex = Mutex()
@@ -46,6 +46,7 @@ class LifetimeLimitedValuePool<T>(
             onAdd(value)
             onChangeSize(pool.size)
         }
+        isNotEmpty.signal(it)
     }
 
     private suspend inline fun report(crossinline block: EventReporter<T>.() -> Unit) {
@@ -80,23 +81,22 @@ class LifetimeLimitedValuePool<T>(
     }
 
     override suspend fun poll(): T? = poolMutex.withLock {
-        pool.poll()?.value?.also { value ->
-            report {
-                onPoll(value)
-                onChangeSize(pool.size)
-            }
-        }
-    }?.also { fetchNewValue() }
+        pool.poll()?.value?.also { onPoll(it) }
+    }
 
-    override suspend fun take(): T = suspendCancellableCoroutine {
-        val interceptor = Interceptor<Entry<T>> { entry ->
-            it.resume(entry.value)
-            true
+    private suspend fun onPoll(value: T) {
+        report {
+            onPoll(value)
+            onChangeSize(pool.size)
         }
-        pool.addInterceptor(interceptor)
-        it.invokeOnCancellation {
-            pool.removeInterceptor(interceptor)
+        fetchNewValue()
+    }
+
+    override suspend fun take(): T = poolMutex.withLock {
+        while (pool.isEmpty()) {
+            isNotEmpty.await(it)
         }
+        pool.poll().value.also { value -> onPoll(value) }
     }
 
     override suspend fun poll(timeoutMillis: Long): T? {
