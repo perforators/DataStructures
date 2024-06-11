@@ -63,6 +63,24 @@ internal class LifetimeLimitedValuePoolTest {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `take() must immediately return value if poll is not empty`() = runTest(UnconfinedTestDispatcher()) {
+        val dispatcher = UnconfinedTestDispatcher(testScheduler)
+        val pool = LifetimeLimitedValuePool(
+            capacity = 1,
+            lifetimeInMillis = Long.MAX_VALUE,
+            valueProvider = { 1 },
+            workDispatcher = dispatcher
+        )
+
+        pool.use {
+            val value = take()
+
+            assertEquals(1, value)
+        }
+    }
+
     @Test
     fun `poll(timeout) must wait for the value to appear before the timeout expires and return it`() = runBlocking {
         val pool = LifetimeLimitedValuePool(
