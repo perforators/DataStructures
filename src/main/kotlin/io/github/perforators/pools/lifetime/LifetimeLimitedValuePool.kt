@@ -3,7 +3,6 @@ package io.github.perforators.pools.lifetime
 import io.github.perforators.pools.Pool
 import io.github.perforators.pools.lifetime.internal.AutoOwnerMutex
 import io.github.perforators.pools.lifetime.internal.newCondition
-import io.github.perforators.queues.intercept.InterceptQueue
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -19,7 +18,7 @@ class LifetimeLimitedValuePool<T>(
 
     private val scope = CoroutineScope(workDispatcher + SupervisorJob())
 
-    private val pool = InterceptQueue<Entry<T>>(ArrayDeque(capacity))
+    private val pool = ArrayDeque<Entry<T>>(capacity)
     private val poolMutex = AutoOwnerMutex()
     private val isNotEmpty = poolMutex.newCondition()
 
