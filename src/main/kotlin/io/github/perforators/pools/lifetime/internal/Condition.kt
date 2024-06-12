@@ -16,7 +16,7 @@ internal interface Condition {
      * **Important:** When returning from this method due to the cancellation of the coroutine,
      * there is a chance that the lock may be in an unlocked state.
      */
-    suspend fun ConditionMutex.LockScope.await()
+    suspend fun LockScope.await()
 
     /**
      * Wakes up one waiting coroutine.
@@ -34,8 +34,8 @@ internal class ConditionImpl(
 
     private val waiters = LockFreeLinkedListHead()
 
-    override suspend fun ConditionMutex.LockScope.await() {
-        require(owner === mutex) {
+    override suspend fun LockScope.await() {
+        require(owner === this@ConditionImpl.owner) {
             "await() must be call in the scope of the mutex, that owns the condition."
         }
         suspendCancellableCoroutine { continuation ->
@@ -44,9 +44,9 @@ internal class ConditionImpl(
             continuation.invokeOnCancellation {
                 waiter.remove()
             }
-            owner.unlock()
+            owner.unlock(this)
         }
-        owner.lock()
+        owner.lock(this)
     }
 
     override fun signal() {

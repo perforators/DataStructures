@@ -1,7 +1,6 @@
 package io.github.perforators.pools.lifetime.internal
 
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -9,6 +8,29 @@ import org.junit.Test
 import kotlin.test.assertEquals
 
 internal class ConditionImplTest {
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `when canceling, await() must not release a mutex held by another coroutine`() = runTest(UnconfinedTestDispatcher()) {
+        val mutex = ConditionMutex()
+        val condition = mutex.newCondition()
+
+        val awaitCondition = launch {
+            mutex.withLock {
+                with(condition) { await() }
+            }
+        }
+        val infiniteLock = launch {
+            mutex.withLock {
+                awaitCancellation()
+            }
+        }
+        awaitCondition.cancel()
+
+        assertEquals(true, mutex.isLocked)
+
+        infiniteLock.cancel()
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
