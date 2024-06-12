@@ -9,57 +9,56 @@ import kotlinx.coroutines.sync.Mutex
 import kotlin.coroutines.resume
 
 internal interface Condition {
-    suspend fun await(owner: Any)
-    suspend fun signal(owner: Any)
+
+    /**
+     * Causes the current coroutine to suspend until it is signalled or cancelled.
+     *
+     * **Important:** When returning from this method due to the cancellation of the coroutine,
+     * there is a chance that the lock may be in an unlocked state.
+     */
+    suspend fun ConditionMutex.LockScope.await()
+
+    /**
+     * Wakes up one waiting coroutine.
+     *
+     * If any coroutines are waiting on this condition then one is selected for waking up.
+     * That coroutine must then re-acquire the lock before returning from [await].
+     */
+    fun signal()
 }
 
-internal fun Mutex.newCondition(): Condition {
-    return ConditionImpl(this)
-}
-
+@OptIn(InternalCoroutinesApi::class)
 internal class ConditionImpl(
-    private val mutex: Mutex
+    private val owner: Mutex
 ) : Condition {
 
     private val waiters = LockFreeLinkedListHead()
 
-    @OptIn(InternalCoroutinesApi::class)
-    override suspend fun await(owner: Any) {
-        require(mutex.holdsLock(owner)) { "$mutex must holds by owner = $owner" }
-        withRelock(owner) {
-            suspendCancellableCoroutine { continuation ->
-                val waiter = Waiter(continuation)
-                waiters.addLast(waiter)
-                mutex.unlock(owner)
-                continuation.invokeOnCancellation {
-                    waiter.remove()
-                }
-            }
+    override suspend fun ConditionMutex.LockScope.await() {
+        require(owner === mutex) {
+            "await() must be call in the scope of the mutex, that owns the condition."
         }
+        suspendCancellableCoroutine { continuation ->
+            val waiter = Waiter(continuation)
+            waiters.addLast(waiter)
+            continuation.invokeOnCancellation {
+                waiter.remove()
+            }
+            owner.unlock()
+        }
+        owner.lock()
     }
 
-    @OptIn(InternalCoroutinesApi::class)
-    override suspend fun signal(owner: Any) {
-        require(mutex.holdsLock(owner)) { "$mutex must holds by owner = $owner" }
-        withRelock(owner) {
-            val waiter = (waiters.removeFirstOrNull() as? Waiter) ?: return
-            mutex.unlock(owner)
-            waiter.continuation.resume(Unit)
-        }
-    }
-    
-    private suspend inline fun withRelock(owner: Any, action: () -> Unit) {
-        try {
-            action()
-        } finally {
-            if (!mutex.holdsLock(owner)) {
-                mutex.lock(owner)
-            }
-        }
+    override fun signal() {
+        val waiter = (waiters.removeFirstOrNull() as? Waiter) ?: return
+        waiter.resume()
     }
 
-    @OptIn(InternalCoroutinesApi::class)
     private class Waiter(
-        val continuation: CancellableContinuation<Unit>
-    ) : LockFreeLinkedListNode()
+        private val continuation: CancellableContinuation<Unit>
+    ) : LockFreeLinkedListNode() {
+        fun resume() {
+            continuation.resume(Unit)
+        }
+    }
 }
