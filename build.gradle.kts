@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "io.github.perforators"
-version = "2.1.1"
+version = "2.1.2"
 
 dependencies {
     testImplementation(kotlin("test"))
