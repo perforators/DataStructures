@@ -1,7 +1,8 @@
 package io.github.perforators.pools.lifetime
 
+import io.github.perforators.newCondition
 import io.github.perforators.pools.Pool
-import io.github.perforators.pools.lifetime.internal.ConditionMutex
+import io.github.perforators.withScopedLock
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -18,7 +19,7 @@ class LifetimeLimitedValuePool<T>(
     private val scope = CoroutineScope(workDispatcher + SupervisorJob())
 
     private val pool = ArrayDeque<Entry<T>>(capacity)
-    private val poolMutex = ConditionMutex()
+    private val poolMutex = Mutex()
     private val isNotEmpty = poolMutex.newCondition()
 
     private val eventReporters: MutableSet<EventReporter<T>> = mutableSetOf()
@@ -91,7 +92,7 @@ class LifetimeLimitedValuePool<T>(
         fetchNewValue()
     }
 
-    override suspend fun take(): T = poolMutex.withLock {
+    override suspend fun take(): T = poolMutex.withScopedLock {
         while (pool.isEmpty()) {
             with(isNotEmpty) { await() }
         }
